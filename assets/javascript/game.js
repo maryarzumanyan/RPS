@@ -23,7 +23,7 @@ function guid() {
     return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
   }
 
-function createPlayer(name) {
+  function createPlayer(name) {
     var playerId = guid();
     db.ref('players/' + playerId).set({
         username: name
@@ -33,17 +33,12 @@ function createPlayer(name) {
 }
 
 function findPartner(myPlayerId) {
-    db.ref('waiting_room').on('value', function(snapshot) {
-        db.ref('waiting_room').off();
+    var waitingRoomRef = db.ref('waiting_room');
+    waitingRoomRef.once('value', function(snapshot) {
         if (snapshot.val()) {
             var gameId = guid();
-            db.ref('game_session/' + gameId).set({
-                player1: myPlayerId,
-                player2: snapshot.val()
-            });
-
-            db.ref('waiting_room').set(gameId);
-            startGameSession(myPlayerId, snapshot.val());
+            waitingRoomRef.set(gameId);
+            startGameSession(gameId, myPlayerId);
         } else {
             waitForPartner(myPlayerId);
         }
@@ -51,20 +46,23 @@ function findPartner(myPlayerId) {
 }
 
 function waitForPartner(myPlayerId) {
-    db.ref('waiting_room').set(myPlayerId);
-    db.ref('waiting_room').on('value', function(snapshot) {
+    var waitingRoomRef = db.ref('waiting_room');
+    waitingRoomRef.set(myPlayerId);
+    waitingRoomRef.on('value', function(snapshot) {
         if (snapshot.val() != myPlayerId) {
             // Someone joined the game
-            db.ref('waiting_room').off();
-            db.ref('waiting_room').remove();
-            startGameSession(myPlayerId, snapshot.val());
-            /// its a game_id, not a user_id////////////////////////////////////////////////////////////////////////////
+            waitingRoomRef.off();
+            waitingRoomRef.remove();
+            startGameSession(snapshot.val(), myPlayerId);
         }
     });
 }
 
-function startGameSession(myPlayerId, otherPlayerId) {
-    alert("Game Started between " + myPlayerId + " and " + otherPlayerId);
+function startGameSession(gameId, myPlayerId) {
+    var gameSessionRef = db.ref('game_session/' + gameId);
+    gameSessionRef.child(myPlayerId).set(0);
+
+    alert("Game Started on session " + gameId);
     $("#connect").css({display: "none"});
     $("#main-container").css({display: "block"});
 }
