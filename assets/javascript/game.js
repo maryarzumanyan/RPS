@@ -19,7 +19,8 @@ var rps =
     myScore: 0,
     oppScore: 0,
     myPick: 0,
-    oppPick: 0
+    oppPick: 0,
+    chat: ""
 }
 
 
@@ -29,19 +30,19 @@ function guid() {
         .toString(16)
         .substring(1);
     }
-    return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
+    return s4() + s4() + "-" + s4() + "-" + s4() + "-" + s4() + "-" + s4() + s4() + s4();
   }
 
   function createPlayer() {
     rps.myPlayerId = guid();
-    db.ref('players/' + rps.myPlayerId).set({
+    db.ref("players/" + rps.myPlayerId).set({
         username: rps.myName
     });   
 }
 
 function findPartner() {
-    var waitingRoomRef = db.ref('waiting_room');
-    waitingRoomRef.once('value', function(snapshot) {
+    var waitingRoomRef = db.ref("waiting_room");
+    waitingRoomRef.once("value", function(snapshot) {
         if (snapshot.val()) {
             // Someone is available to start the game
             rps.gameId = guid();
@@ -54,9 +55,9 @@ function findPartner() {
 }
 
 function waitForPartner() {
-    var waitingRoomRef = db.ref('waiting_room');
+    var waitingRoomRef = db.ref("waiting_room");
     waitingRoomRef.set(rps.myPlayerId);
-    waitingRoomRef.on('value', function(snapshot) {
+    waitingRoomRef.on("value", function(snapshot) {
         if (snapshot.val() != rps.myPlayerId) {
             // Someone joined the game
             waitingRoomRef.off();
@@ -68,14 +69,18 @@ function waitForPartner() {
 }
 
 function startGameSession() {
-    var gameSessionRef = db.ref('game_session/' + rps.gameId);
+    var gameSessionRef = db.ref("game_session/" + rps.gameId);
     gameSessionRef.child(rps.myPlayerId).set(0);
-    gameSessionRef.on('child_added', function(snapshot) {
+    gameSessionRef.on("child_added", function(snapshot) {
         if (snapshot.key != rps.myPlayerId) {
-            rps.oppId = snapshot.key;
             gameSessionRef.off();
+            rps.oppId = snapshot.key;
+            db.ref("players/" + rps.oppId + "/username").once("value", function(snapshot){
+                rps.oppName = snapshot.val();
+                $("#oppName").text(rps.oppName + "'s");
+            });
 
-            db.ref('game_session/' + rps.gameId + "/" + rps.oppId).on('value', function(snapshot){
+            db.ref("game_session/" + rps.gameId + "/" + rps.oppId).on("value", function(snapshot){
                 if (snapshot.val() != 0) {
                     rps.oppPick = snapshot.val();
                     match();
@@ -85,9 +90,19 @@ function startGameSession() {
                 }
                 
             });
-        }
-    });
 
+            db.ref("game_session/" + rps.gameId).child("chat").set("");
+            
+            /////////////////// Got new message ?
+            db.ref("game_session/" + rps.gameId + "/chat").on("value", function(snapshot){
+                rps.chat = snapshot.val();
+                $("#chat-history").text(rps.chat);
+                $("#chat-history").scrollTop($('#chat-history')[0].scrollHeight);
+            })
+
+        }
+    }); 
+    
     $("#connect").css({display: "none"});
     $("#main-container").css({display: "block"});
 }
@@ -144,7 +159,7 @@ function scoresCalculation()
             $("#img-status-your").attr("src", "assets/images/!available.jpg");
             $("#img-status-opp").attr("src", "assets/images/!available.jpg");
         }
-    }, 1500);
+    }, 1000);
 
     
 }
@@ -155,6 +170,7 @@ window.onload = function() {
 
     $("#btn-connect").on("click", function(){
         rps.myName = $("#name-input").val();
+        $("#btn-connect").attr("style", "pointer-events: none; opacity: 0.4;");
         createPlayer();
         findPartner();
     });
@@ -172,4 +188,11 @@ window.onload = function() {
         }
 
     });
+
+    $("#btn-send-msg").on("click", function(){
+        var newMessage = "\n" + rps.myName + ": " + $("#input-text").val();
+        rps.chat = rps.chat + newMessage;
+        $("#input-text").val("");
+        db.ref("game_session/" + rps.gameId + "/chat").set(rps.chat);
+    })
 }

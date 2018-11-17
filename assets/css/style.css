@@ -55,14 +55,6 @@
     height: 100%;
 }
 
-
-    
-#btn-send-message{
-    margin: 20px;
-    background-color: transparent;
-    block-size: 80px;
-    width:  300px;
-    font-weight: 500;
-    font-size: 40px;
-    color: yellowgreen;
+#chat{
+    margin-top: 20px;
 }
